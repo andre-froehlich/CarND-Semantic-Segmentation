@@ -157,13 +157,33 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # TODO: Build NN using load_vgg, layers, and optimize function
-        input_image, keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
+        layer_input_image, layer_keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
 
+        batch_size = 25
+        epochs = 250
+        channels = 3
+        learning_rate = tf.placeholder(tf.float32)
+        keep_prob = tf.placeholder(tf.float32)
+
+        correct_label = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], num_classes)))
+        input_image = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], channels)),
+                                  dtype=tf.float32)
+
+        logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
+        sess.run(tf.global_variables_initializer())
+        saver = tf.train.Saver()
+
         # TODO: Train NN using the train_nn function
+        train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
+                 layer_input_image, correct_label, keep_prob, learning_rate)
+        saver.save(sess, 'trained_model', global_step=epochs)
+
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
+        helper.save_inference_samples(os.path.join(data_dir, 'data_road_test_results'),
+                                      data_dir, sess, image_shape, logits, keep_prob, layer_input_image)
 
         # OPTIONAL: Apply the trained model to a video
 
