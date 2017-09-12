@@ -56,27 +56,30 @@ def layers(vgg_layer3_out, vgg_layer4_out, vgg_layer7_out, num_classes):
     """
     # TODO: Implement function
     layer7_conv = tf.layers.conv2d(vgg_layer7_out, num_classes, 1, padding='same',
-                               kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+                                   kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                   kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     layer4_conv = tf.layers.conv2d(vgg_layer4_out, num_classes, 1, padding='same',
+                                   kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
     layer3_conv = tf.layers.conv2d(vgg_layer3_out, num_classes, 1, padding='same',
+                                   kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
                                    kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     layer7_up = tf.layers.conv2d_transpose(layer7_conv, num_classes, 4, 2, padding='same',
-                                        kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+                                           kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                           kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     skip1 = layer4_conv + layer7_up
 
     skip1_up = tf.layers.conv2d_transpose(skip1, num_classes, 4, 2, padding='same',
-                                            kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
+                                          kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                          kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
 
     skip2 = layer3_conv + skip1_up
 
-    #skip2_up = tf.layers.conv2d_transpose(skip2, num_classes, 16'''4''', strides=(8, 8)'''2''', padding='same',
-    #                                      kernel_regularizer=tf.contrib.layers.l2_regularizer(1e-3))
-
     skip2_up = tf.layers.conv2d_transpose(skip2, num_classes, 16, strides = (8, 8), padding = 'same',
-                       kernel_regularizer = tf.contrib.layers.l2_regularizer(1e-3))
+                                          kernel_initializer=tf.truncated_normal_initializer(stddev=0.01),
+                                          kernel_regularizer = tf.contrib.layers.l2_regularizer(1e-3))
 
     return skip2_up
 tests.test_layers(layers)
@@ -119,23 +122,24 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     :param learning_rate: TF Placeholder for learning rate
     """
     # TODO: Implement function
-    lr = 1e-5
-    kp = 0.8
+    lr = 1e-4
+    kp = 0.5
 
     for epoch in range(epochs):
         aggr_loss = 0
         samples_count = 0
         for image, label in get_batches_fn(batch_size):
-            _, loss = sess.run([train_op, cross_entropy_loss],
-                                 feed_dict={input_image: image,
-                                            correct_label: label,
-                                            keep_prob: kp,
-                                            learning_rate: lr})
+            print('Len of image: ' + str(len(image)))
+            if (len(image) == batch_size):
+                _, loss = sess.run([train_op, cross_entropy_loss], feed_dict={input_image: image,
+                                                  correct_label: label,
+                                                  keep_prob: kp,
+                                                  learning_rate: lr})
 
-            aggr_loss += loss * len(image)
-            samples_count += len(image)
-
-        print("Epoch {}, Loss = {}".format(epoch, aggr_loss / samples_count))
+                aggr_loss += loss * len(image)
+                samples_count += len(image)
+        if (samples_count > 0):
+            print("Epoch {}, Loss = {}".format(epoch, aggr_loss / samples_count))
 
 tests.test_train_nn(train_nn)
 
@@ -170,11 +174,11 @@ def run():
         print('Building FCN graph...')
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
 
-        batch_size = 25
-        epochs = 250
+        batch_size = 16
+        epochs = 25
         channels = 3
         learning_rate = tf.placeholder(tf.float32)
-        keep_prob = tf.placeholder(tf.float32)
+        #keep_prob = tf.placeholder(tf.float32)
 
         correct_label = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], num_classes)))
         input_image = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], channels)),
@@ -183,19 +187,20 @@ def run():
         print('Building optimize operation...')
         logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
         sess.run(tf.global_variables_initializer())
-        saver = tf.train.Saver()
 
         # TODO: Train NN using the train_nn function
         print('Train...')
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
-                 layer_input_image, correct_label, keep_prob, learning_rate)
-        saver.save(sess, 'trained_model', global_step=epochs)
+                 layer_input_image, correct_label, layer_keep_prob, learning_rate)
+
+        #saver = tf.train.Saver()
+        #saver.save(sess, 'trained_model', global_step=epochs)
 
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
         print('Saving inference samples...')
         helper.save_inference_samples(os.path.join(data_dir, 'test_results'),
-                                      data_dir, sess, image_shape, logits, keep_prob, layer_input_image)
+                                      data_dir, sess, image_shape, logits, layer_keep_prob, layer_input_image)
 
         # OPTIONAL: Apply the trained model to a video
 

@@ -21,7 +21,7 @@ class DLProgress(tqdm):
         self.last_block = block_num
 
 
-def maybe_download_pretrained_vgg(data_dir):
+def pimaybe_download_pretrained_vgg(data_dir):
     """
     Download and extract pretrained vgg model if it doesn't exist
     :param data_dir: Directory to download the model to
