@@ -123,12 +123,19 @@ def train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_l
     kp = 0.8
 
     for epoch in range(epochs):
+        aggr_loss = 0
+        samples_count = 0
         for image, label in get_batches_fn(batch_size):
-            nop, loss = sess.run([train_op, cross_entropy_loss],
+            _, loss = sess.run([train_op, cross_entropy_loss],
                                  feed_dict={input_image: image,
                                             correct_label: label,
                                             keep_prob: kp,
                                             learning_rate: lr})
+
+            aggr_loss += loss * len(image)
+            samples_count += len(image)
+
+        print("Epoch {}, Loss = {}".format(epoch, aggr_loss / samples_count))
 
 tests.test_train_nn(train_nn)
 
@@ -157,7 +164,10 @@ def run():
         #  https://datascience.stackexchange.com/questions/5224/how-to-prepare-augment-images-for-neural-network
 
         # TODO: Build NN using load_vgg, layers, and optimize function
+        print('Loading VGG...')
         layer_input_image, layer_keep_prob, layer3_out, layer4_out, layer7_out = load_vgg(sess, vgg_path)
+
+        print('Building FCN graph...')
         layer_output = layers(layer3_out, layer4_out, layer7_out, num_classes)
 
         batch_size = 25
@@ -170,23 +180,24 @@ def run():
         input_image = tf.Variable(tf.zeros(shape=(batch_size, image_shape[0], image_shape[1], channels)),
                                   dtype=tf.float32)
 
+        print('Building optimize operation...')
         logits, train_op, cross_entropy_loss = optimize(layer_output, correct_label, learning_rate, num_classes)
         sess.run(tf.global_variables_initializer())
         saver = tf.train.Saver()
 
         # TODO: Train NN using the train_nn function
+        print('Train...')
         train_nn(sess, epochs, batch_size, get_batches_fn, train_op, cross_entropy_loss,
                  layer_input_image, correct_label, keep_prob, learning_rate)
         saver.save(sess, 'trained_model', global_step=epochs)
 
-
         # TODO: Save inference data using helper.save_inference_samples
         #  helper.save_inference_samples(runs_dir, data_dir, sess, image_shape, logits, keep_prob, input_image)
-        helper.save_inference_samples(os.path.join(data_dir, 'data_road_test_results'),
+        print('Saving inference samples...')
+        helper.save_inference_samples(os.path.join(data_dir, 'test_results'),
                                       data_dir, sess, image_shape, logits, keep_prob, layer_input_image)
 
         # OPTIONAL: Apply the trained model to a video
-
 
 if __name__ == '__main__':
     run()
